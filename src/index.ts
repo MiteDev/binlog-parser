@@ -10,15 +10,16 @@ const magicNumber = (buf: Buffer) => {
     return magic
 }
 
+
 const headerFunc = (magic: Buffer, buf: Buffer) => {
     file_pointer += magic.length;
 
-    const header = buf.subarray(4); // after 4byte
+    const header = buf.subarray(4, 23); // after 4byte
     console.log(header)
 
     file_pointer += event_header_len;
 
-    const u = unpack('<IB3IH', header); // Little-Endian unsigned Int, unsigned char, unsigned Int, unsigned Int, unsigned Int, unsigned short
+    const u = unpack('<IB3IH', header); // Little-Endian unsigned Int 4 Byte, unsigned char 1 Byte, unsigned Int 4 Byte, unsigned Int 4 Byte, unsigned Int 4 Byte, unsigned short 2 Byte
     const timestamp = Number(u[0]) * 1000;
     const event_type = u[1];
     const server_id = u[2];
@@ -27,14 +28,26 @@ const headerFunc = (magic: Buffer, buf: Buffer) => {
 
     console.log(`timestamp: ${timestamp}\nevent_type: ${event_type}\nserver_id: ${server_id}\nevent_size: ${event_size}\nnext_log_pos: ${log_pos}`)
 
-    const version = buf.subarray(23, 24);
-    console.log(version);
+    console.log('body size', Number(event_size) - event_header_len)
+    
+    const version = buf.subarray(23, 25);
     file_pointer += 2;
-    console.log('binlog version', unpack('<I', version));
+    console.log('binlog version', unpack('<H', version));
+
+    const server_version = buf.subarray(25, 75);
+    file_pointer += 50;
+    console.log('server version', unpack('<50s', server_version))
+
+    const follow_header_timestamp = buf.subarray(75, 79);
+    file_pointer += 4;
+    console.log('timestamp', unpack('<I', follow_header_timestamp));
+
+    const _ = buf.subarray(79, Number(event_size) - 19 - 56);
+    file_pointer += Number(event_size) - 19 - 56
 }
 
 const main = () => {
-    const buf = fs.readFileSync('/home/dong/mysql-bin.000001');
+    const buf = fs.readFileSync('/opt/homebrew/var/mysql/mariadb-bin.000001');
     const magic = magicNumber(buf);
     console.log(magic)
     headerFunc(magic, buf)
