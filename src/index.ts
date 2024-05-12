@@ -29,7 +29,7 @@ const headerFunc = (magic: Buffer, buf: Buffer) => {
     console.log(`timestamp: ${timestamp}\nevent_type: ${event_type}\nserver_id: ${server_id}\nevent_size: ${event_size}\nnext_log_pos: ${log_pos}`)
 
     console.log('body size', Number(event_size) - event_header_len)
-    
+
     const version = buf.subarray(23, 25);
     file_pointer += 2;
     console.log('binlog version', unpack('<H', version));
@@ -44,6 +44,15 @@ const headerFunc = (magic: Buffer, buf: Buffer) => {
 
     const _ = buf.subarray(79, Number(event_size) - 19 - 56);
     file_pointer += Number(event_size) - 19 - 56
+    console.log(file_pointer);
+
+    const t = buf.subarray(465, 484);
+    console.log(unpack('<IB3IH', t))
+    const a = buf.subarray(484, 497);
+    console.log(unpack('<IIBHH', a));
+    const b = unpack('<IIBHH', a);
+    console.log(b[0])
+    console.log(buf.readUInt32LE(Number(b[0])))
 }
 
 const main = () => {
