@@ -11,59 +11,52 @@ const magicNumber = (buf: Buffer) => {
 }
 
 
-const headerFunc = (magic: Buffer, buf: Buffer) => {
-    file_pointer += magic.length;
 
-    const header = buf.subarray(4, 23); // after 4byte
-    console.log(header)
+const headerFunc = (start_log_pos: number, buf: Buffer) => {
+    const header_buf = buf.subarray(start_log_pos, start_log_pos + 19);
 
-    file_pointer += event_header_len;
+    const timestamp = header_buf.readUInt32LE(0);
+    const event_type = header_buf.readUInt8(0);
+    console.log(timestamp, event_type)
 
-    const u = unpack('<IB3IH', header); // Little-Endian unsigned Int 4 Byte, unsigned char 1 Byte, unsigned Int 4 Byte, unsigned Int 4 Byte, unsigned Int 4 Byte, unsigned short 2 Byte
-    const timestamp = Number(u[0]) * 1000;
-    const event_type = u[1];
-    const server_id = u[2];
-    const event_size = u[3];
-    const log_pos = u[4];
+    // const u = unpack('<IB3IH', header_buf); // Little-Endian unsigned Int 4 Byte, unsigned char 1 Byte, unsigned Int 4 Byte, unsigned Int 4 Byte, unsigned Int 4 Byte, unsigned short 2 Byte
+    // const timestamp = Number(u[0]) * 1000;
+    // const event_type = u[1];
+    // const server_id = u[2];
+    // const event_size = u[3];
+    // const next_log_pos = u[4];
 
-    console.log(`timestamp: ${timestamp}\nevent_type: ${event_type}\nserver_id: ${server_id}\nevent_size: ${event_size}\nnext_log_pos: ${log_pos}`)
+    // console.log(`timestamp: ${timestamp}\nevent_type: ${event_type}\nserver_id: ${server_id}\nevent_size: ${event_size}\nnext_log_pos: ${log_pos}`)
 
-    console.log('body size', Number(event_size) - event_header_len)
+    // console.log('body size', Number(event_size) - event_header_len)
 
-    const version = buf.subarray(23, 25);
-    file_pointer += 2;
-    console.log('binlog version', unpack('<H', version));
+    // const version = buf.subarray(23, 25);
+    // console.log('binlog version', unpack('<H', version));
 
-    const server_version = buf.subarray(25, 75);
-    file_pointer += 50;
-    console.log('server version', unpack('<50s', server_version))
+    // const server_version = buf.subarray(25, 75);
+    // console.log('server version', unpack('<50s', server_version))
 
-    const follow_header_timestamp = buf.subarray(75, 79);
-    file_pointer += 4;
-    console.log('timestamp', unpack('<I', follow_header_timestamp));
+    // const follow_header_timestamp = buf.subarray(75, 79);
+    // console.log('timestamp', unpack('<I', follow_header_timestamp));
 
-    const _ = buf.subarray(79, Number(event_size) - 19 - 56);
-    file_pointer += Number(event_size) - 19 - 56
-    console.log(file_pointer);
-
-    const t = buf.subarray(465, 484);
-    console.log(unpack('<IB3IH', t))
-    const a = buf.subarray(484, 497);
-    console.log(unpack('<IIBHH', a));
-    const b = unpack('<IIBHH', a);
-    console.log(b[0])
-    console.log(buf.readUInt32LE(Number(b[0])))
+    // const _ = buf.subarray(79, Number(event_size) - 19 - 56);
+    // file_pointer += Number(event_size) - 19 - 56
+    
+    // return { timestamp, event_type, server_id, event_size, next_log_pos };
 }
 
 const main = () => {
     const buf = fs.readFileSync('/opt/homebrew/var/mysql/mariadb-bin.000001');
     const magic = magicNumber(buf);
-    console.log(magic)
-    headerFunc(magic, buf)
+    console.log(magic);
+    headerFunc(4, buf)
 }
 
 if(require.main === module) {
     (() => {
-        main();
+        main()
+        // const buf = Buffer.from([0x12, 0x34, 0x56, 0x78, 0x12]);
+
+        // console.log(buf.readUInt32LE(0).toString());
     })()
 };
