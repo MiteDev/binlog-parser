@@ -3,53 +3,65 @@ import * as util from 'util';
 import {unpack} from 'python-struct';
 
 const event_header_len = 19;
-let file_pointer = 0;
 
 const magicNumber = (buf: Buffer) => {
     const magic = buf.subarray(0, 22);
     return magic
 }
 
+const descriptionEventParser = (buf: Buffer) => {
+    const binlog_version = buf.readUInt16LE(0);
+    const mysql_server_version = buf.subarray(2, 52).toString().replace(/\x00/g, '');
+    const create_timestamp = buf.readUInt32LE(52);
 
+    return { binlog_version, mysql_server_version, create_timestamp}
+}
 
-const headerFunc = (start_log_pos: number, buf: Buffer) => {
-    const header_buf = buf.subarray(start_log_pos, start_log_pos + 19);
+const binlogCheckpointEventParser = (buf: Buffer) => {
+    const log_filename_length = buf.readUint32LE(0);
+    console.log(log_filename_length);
+    const filename = buf.subarray(4, 4 + log_filename_length);
+    console.log(filename)
+}
 
+const getEventPayloadBuf = (start_log_pos: number, next_log_pos: number, buf: Buffer) => 
+    buf.subarray(start_log_pos, next_log_pos);
+
+const getEventHeaderBuf = (start_log_pos: number, buf: Buffer) => 
+    buf.subarray(start_log_pos, start_log_pos + event_header_len);
+
+const headerParser = (header_buf: Buffer) => {
     const timestamp = header_buf.readUInt32LE(0);
-    const event_type = header_buf.readUInt8(0);
-    console.log(timestamp, event_type)
+    const event_type = header_buf.readUInt8(4);
+    const server_id = header_buf.readUInt32LE(5);
+    const event_size = header_buf.readUInt32LE(9);
+    const next_log_pos = header_buf.readUInt32LE(13);
+    const start_playload_log_pos = next_log_pos - event_size + event_header_len;
+    const flag = header_buf.readUInt16LE(17);
 
-    // const u = unpack('<IB3IH', header_buf); // Little-Endian unsigned Int 4 Byte, unsigned char 1 Byte, unsigned Int 4 Byte, unsigned Int 4 Byte, unsigned Int 4 Byte, unsigned short 2 Byte
-    // const timestamp = Number(u[0]) * 1000;
-    // const event_type = u[1];
-    // const server_id = u[2];
-    // const event_size = u[3];
-    // const next_log_pos = u[4];
-
-    // console.log(`timestamp: ${timestamp}\nevent_type: ${event_type}\nserver_id: ${server_id}\nevent_size: ${event_size}\nnext_log_pos: ${log_pos}`)
-
-    // console.log('body size', Number(event_size) - event_header_len)
-
-    // const version = buf.subarray(23, 25);
-    // console.log('binlog version', unpack('<H', version));
-
-    // const server_version = buf.subarray(25, 75);
-    // console.log('server version', unpack('<50s', server_version))
-
-    // const follow_header_timestamp = buf.subarray(75, 79);
-    // console.log('timestamp', unpack('<I', follow_header_timestamp));
-
-    // const _ = buf.subarray(79, Number(event_size) - 19 - 56);
-    // file_pointer += Number(event_size) - 19 - 56
-    
-    // return { timestamp, event_type, server_id, event_size, next_log_pos };
+    return {
+        timestamp,
+        event_type,
+        server_id,
+        event_size,
+        start_playload_log_pos,
+        next_log_pos,
+        flag
+    }
 }
 
 const main = () => {
     const buf = fs.readFileSync('/opt/homebrew/var/mysql/mariadb-bin.000001');
     const magic = magicNumber(buf);
-    console.log(magic);
-    headerFunc(4, buf)
+    const header_buf = getEventHeaderBuf(285, buf);
+    const header = headerParser(header_buf);
+    const payload_buf = getEventPayloadBuf(header.start_playload_log_pos, header.next_log_pos, buf);
+    console.log(payload_buf)
+    console.log(header);
+    binlogCheckpointEventParser(payload_buf)
+    // const description = descriptionEventParser(payload_buf);
+    // console.log(description)
+
 }
 
 if(require.main === module) {
