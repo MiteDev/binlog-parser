@@ -87,8 +87,11 @@ const EVENT_TYPE = {
     }
 }
 
+const CHECK_SUM = 4;
+
 export {
-    EVENT_TYPE
+    EVENT_TYPE,
+    CHECK_SUM
 }
 
 if(require.main === module) {

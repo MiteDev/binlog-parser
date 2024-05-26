@@ -1,24 +1,46 @@
-import { EVENT_HEADER_LENGTH } from '../../constant';
-import { HeaderParserInterface } from './interface';
+import { EVENT_HEADER_LENGTH, CHECK_SUM } from '../../constant';
 
 export default class MariaDB {
     private buf_len: number;
-    headers: HeaderParserInterface[];
     private buf: Buffer;
-
-    magic: number;
 
     constructor(buf: Buffer) {
         this.buf_len = buf.length;
-        this.headers = [];
         this.buf = buf;
-        this.magic = 4;
-        this.getAllHeader(buf);
+    }
+
+    queryEvent(payload_log_pos: number, next_log_pos: number) {
+        const buf = this.buf.subarray(payload_log_pos, next_log_pos - CHECK_SUM);
+        
+        // =========== Fixed Data Part ===========
+        const thread_id = buf.readUInt32LE(0); // 4 Byte
+        const execution_time = buf.readUInt32LE(4); // 4 Byte
+        const statement_default_database_name_len = buf.readUInt8(8); // 1 Byte
+        const error_code = buf.readUInt16LE(9); // 2 Byte
+        const status_variable_block_len = buf.readUInt16LE(11); // 2 Byte => Total 13 Byte Read
+
+        // =========== Variable Data Part ===========
+        const variable_buf_pos = 13;
+        const status_variables = buf.subarray(variable_buf_pos, status_variable_block_len); 
+        const default_database = buf.subarray(variable_buf_pos + status_variable_block_len, variable_buf_pos + status_variable_block_len + statement_default_database_name_len).toString();
+        const the_sql_statement = buf.subarray(13 + status_variable_block_len + statement_default_database_name_len, buf.length).toString();
+        console.log(the_sql_statement)
+        
+        return {
+            thread_id,
+            execution_time,
+            statement_default_database_name_len,
+            error_code,
+            status_variable_block_len,
+            status_variables,
+            default_database,
+            the_sql_statement
+        }
     }
 
     annotateRowsEvent(payload_log_pos: number, next_log_pos: number) {
-        const field = this.buf.subarray(payload_log_pos, next_log_pos).toString();
-        console.log(field)
+        // Delete 4 Byte for CheckSum
+        const field = this.buf.subarray(payload_log_pos, next_log_pos - CHECK_SUM).toString(); 
         return field;
     }
 
@@ -36,7 +58,7 @@ export default class MariaDB {
         return { log_filename_length, filename };
     }
 
-    headerParser(buf: Buffer) {
+    headerBufParser(buf: Buffer) {
         const timestamp = buf.readUInt32LE(0);
         const event_type = buf.readUInt8(4);
         const server_id = buf.readUInt32LE(5);
@@ -56,16 +78,20 @@ export default class MariaDB {
         }
     }
 
-    getAllHeader(buf = this.buf) {
-        const delete_magic = buf.subarray(4);
-        const header = this.headerParser(delete_magic);
-        this.headers.push(header);
+    headerParser(header: ReturnType<typeof this.headerBufParser>) {
 
-        while(header.next_log_pos >= this.buf_len) {
-            return this.headers;
+    }
+
+    getAllHeader() {
+        const headers = [];
+        
+        for(let start_log_pos = 4; start_log_pos < this.buf_len;) {
+            const buf = this.buf.subarray(start_log_pos);
+            const header = this.headerBufParser(buf);
+            start_log_pos += header.event_size;
+            headers.push(header);
         }
 
-        const next_buf = buf.subarray(header.event_size);
-        this.getAllHeader(next_buf);
+        return headers;
     }
 }
