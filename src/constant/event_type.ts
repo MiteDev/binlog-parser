@@ -87,6 +87,10 @@ const EVENT_TYPE = {
     }
 }
 
+export {
+    EVENT_TYPE
+}
+
 if(require.main === module) {
     (() => {
         console.log(EVENT_TYPE)

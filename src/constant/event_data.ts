@@ -18,10 +18,14 @@ const FORMAT_DESCRIPTOIN_EVENT_PAYLOAD = {
 const BINLOG_CHECKPOINT_EVENT_PAYLOAD = {
     log_filename_length: {
         type: 'number',
-        length: 16
+        length: 4
     },
     filename: {
         type: 'string',
-        length: 16
+        length: Infinity
     }
+}
+
+export {
+    EVENT_HEADER_LENGTH, BINLOG_CHECKPOINT_EVENT_PAYLOAD, FORMAT_DESCRIPTOIN_EVENT_PAYLOAD
 }
